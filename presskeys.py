@@ -1,9 +1,12 @@
+# This code contains functions that are used to send keyboard inputs to the game
+
 import ctypes
 import time
 
 SendInput = ctypes.windll.user32.SendInput
 
 
+# hex codes for keys that are used in gameplay
 W = 0x11
 A = 0x1E
 S = 0x1F
@@ -45,8 +48,10 @@ class Input(ctypes.Structure):
     _fields_ = [("type", ctypes.c_ulong),
                 ("ii", Input_I)]
 
+    
 # Actuals Functions
 
+# Implementation of a key press
 def PressKey(hexKeyCode):
     extra = ctypes.c_ulong(0)
     ii_ = Input_I()
@@ -54,6 +59,8 @@ def PressKey(hexKeyCode):
     x = Input( ctypes.c_ulong(1), ii_ )
     ctypes.windll.user32.SendInput(1, ctypes.pointer(x), ctypes.sizeof(x))
 
+    
+# Implementation of a key release
 def ReleaseKey(hexKeyCode):
     extra = ctypes.c_ulong(0)
     ii_ = Input_I()
@@ -61,6 +68,8 @@ def ReleaseKey(hexKeyCode):
     x = Input( ctypes.c_ulong(1), ii_ )
     ctypes.windll.user32.SendInput(1, ctypes.pointer(x), ctypes.sizeof(x))
 
+
+# For ensuring no key is pressed at a particular moment in the game 
 def ReleaseAllKeys():
     ReleaseKey(W)
     ReleaseKey(A)
