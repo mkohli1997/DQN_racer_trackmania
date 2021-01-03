@@ -1,7 +1,9 @@
+# This code is the implementation for the TrackMania Forever's environment. This requires the game being played in windowed mode in the top-left
+# corner of the screen.
+
 import numpy as np
 import cv2
 from keras.models import load_model
-
 import time
 from generate_scr_data import *
 from PIL import ImageGrab
@@ -108,10 +110,7 @@ class TM(object):
             return False
 
     def check_completion(self, timestamp_list):
-        # if len(set(timestamp_list))==1:
-        #     self.reward = COMPLETION_REWARD
-        #     return True
-        if timestamp_list[-1]==timestamp_list[-2] and timestamp_list[-2]==timestamp_list[-3]:
+        if len(set(timestamp_list)) == 1:
             self.reward = COMPLETION_REWARD
             return True
         else:
