@@ -1,3 +1,5 @@
+# This code trains the DQN agent. The game needs to be running in windowed mode (640x480) and should be the active window so that key actions are performed in-game.
+
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Conv2D, MaxPooling2D, Activation, Flatten, BatchNormalization, Conv3D, MaxPooling3D, InputLayer
 from keras.callbacks import TensorBoard
@@ -15,28 +17,28 @@ from tqdm import tqdm
 from presskeys import W, S, A, D, enter, esc
 from math import log
 import time
-# from keras.losses import huber_loss
 from keras import backend as K
-# from keystrokes import key_check
 
 
+# size of the replay memory
 REPLAY_MEMORY_SIZE = 5000
-MODEL_NAME = '32-64-128-128D_StridedCONVnet_long_track'
+MODEL_NAME = '<specify model name>'
+# size of the batch to train at a time
 MINIBATCH_SIZE = 64
+# discount factor for rewards
 DISCOUNT = 0.95
-ALPHA = 0.1
+# how often to update the Q-targets
 UPDATE_TARGET_EVERY = 1000
-# MIN_REWARD = -200  # For model savepwawawawa
-# MEMORY_FRACTION = 0.20
+# how frequently to save the model weights
 SAVE_FROM_EPISODE = 100
 
-# Environment settings
+# number of episodes
 EPISODES = 5000
 
 # Exploration settings
 epsilon = 1  # not a constant, going to be decayed
-EPSILON_DECAY = 0.99944
-MIN_EPSILON = 0.10
+EPSILON_DECAY = 0.99944 # decay rate for exploration
+MIN_EPSILON = 0.10 # minimum exploration rate
 
 #  Stats settings
 AGGREGATE_STATS_EVERY = 25  # episodes
@@ -57,6 +59,7 @@ if not os.path.isdir('models'):
     os.makedirs('models')
 
 
+# This class modifies the graphs we see on tensorboard, to add reward and exploration decay graphs
 class ModifiedTensorBoard(TensorBoard):
     # Overriding init to set initial step and writer (we want one log file for all .fit() calls)
     def __init__(self, **kwargs):
@@ -94,14 +97,14 @@ class DQNAgent:
         self.model = self.create_model((6, 60, 80))
         # fix the targets
         self.target_model = self.create_model((6, 60, 80))
-        # self.target_model = load_model('models/[THIRD-SAFETY]32-64-128-128D_StridedCONVnet_left_huber_-3.216471629705268max_-70.7795296128333avg_-217.76575878519014min_0.11epsilon_1999episode_1587752890.model', custom_objects={'huber_loss': self.huber_loss})
-        # self.model = load_model('models/[THIRD-SAFETY]32-64-128-128D_StridedCONVnet_left_huber_-3.216471629705268max_-70.7795296128333avg_-217.76575878519014min_0.11epsilon_1999episode_1587752890.model', custom_objects={'huber_loss': self.huber_loss})
-        # self.target_model.set_weights(self.model.get_weights())
         self.replay_memory = deque(maxlen=REPLAY_MEMORY_SIZE)
         self.tensorboard = ModifiedTensorBoard(log_dir='logs/{}-{}'.format(MODEL_NAME, int(time.time())))
         self.target_update_counter = 0
 
     def huber_loss(self, a, b, in_keras=True):
+        """
+        Implementation for huber loss
+        """
         error = a - b
         quadratic_term = (error * error) / 2
         linear_term = abs(error) - (1 / 2)
@@ -129,25 +132,39 @@ class DQNAgent:
 
         model.add(Dense(7, activation='linear'))
         model.summary()
-        exit(0)
+
         model.compile(loss=self.huber_loss, optimizer=Adam(lr=1e-5, clipnorm=1.0), metrics=['accuracy'])
 
         return model
 
 
     def update_replay_memory(self, transition):
+        """
+        Adds the current transition to the replay memory.
+        """
+        
         self.replay_memory.append(transition)
 
     def get_qs(self, state):
+        """
+        Get predicted Q values from the main model.
+        """
         return self.model.predict(np.array(state).reshape(-1, *state.shape))[0]
 
 
     def train(self, terminal_state, step):
+        """
+        Main training code for the DQN agent.
+        """
+        
         global UPDATE_TARGET_EVERY
+        
+        # keep filling replay memory until its size = MIN_REPLAY_MEMORY_SIZE, training does not start until the memory is full
         if len(self.replay_memory) < MIN_REPLAY_MEMORY_SIZE:
             print('Filling up Replay Memory...', len(self.replay_memory))
             return
-
+        
+        # randomly sample from replay memory
         minibatch = random.sample(self.replay_memory, MINIBATCH_SIZE)
 
         current_state = np.array([transition[0] for transition in minibatch])
@@ -162,6 +179,7 @@ class DQNAgent:
         for index, (current_state, action, reward, new_current_state, done) in enumerate(minibatch):
             if not done:
                 max_future_q = np.max(future_qs_list[index])
+                # apply bellman's equation
                 new_q = reward + DISCOUNT * max_future_q
             else:
                 new_q = reward
@@ -215,10 +233,9 @@ def training_agent():
                 action = np.random.randint(0, 7)
 
             game.make_action(action)
-
+            
+            # get live data from the gameplay
             next_frame, next_speed, next_timestamp, collided = game.live_data()
-
-            # next_state=np.append(curr_state[:, :, 1:], np.reshape(next_frame,(*next_frame.shape, 1)), axis=2)
 
             next_state = np.concatenate((curr_state[1:], [next_frame]), axis = 0)
 
@@ -237,23 +254,12 @@ def training_agent():
                 ReleaseAllKeys()
                 done=True
                 time.sleep(7)
+                # press return twice to reach the new race screen
                 PressKey(enter)
                 ReleaseKey(enter)
                 PressKey(enter)
                 ReleaseKey(enter)
-                PressKey(enter)
-                ReleaseKey(enter)
-                PressKey(enter)
-                ReleaseKey(enter)
-                time.sleep(7)
-                PressKey(enter)
-                ReleaseKey(enter)
-                PressKey(enter)
-                ReleaseKey(enter)
-                PressKey(enter)
-                ReleaseKey(enter)
-                PressKey(enter)
-                ReleaseKey(enter)
+                
 
             elif stuck:
                 done = True
@@ -273,9 +279,7 @@ def training_agent():
                 else:
                     game.get_reward(next_speed_list)
 
-
-
-
+            # update replay memory each episode
             agent.update_replay_memory([curr_state, action, game.reward, next_state, done])
             agent.train(done, step)
             curr_state=np.copy(next_state)
